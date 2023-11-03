@@ -1,3 +1,4 @@
+from datetime import datetime
 import io
 import os
 import shlex
@@ -203,14 +204,18 @@ class IOBinding:
 
     def save(self, event):
         if not self.filename:
-            self.save_as(event)
-        else:
-            if self.writefile(self.filename):
-                self.set_saved(True)
-                try:
-                    self.editwin.store_file_breaks()
-                except AttributeError:  # may be a PyShell
-                    pass
+            now = datetime.now().strftime("%d-%m-%Y %H.%M.%S")
+            pway = f"{os.getcwd()}\\temp"
+            if not os.path.isdir(pway):
+                os.makedirs(pway)
+            self.set_filename(f"{pway}\\{now}.py")
+
+        if self.writefile(self.filename):
+            self.set_saved(True)
+            try:
+                self.editwin.store_file_breaks()
+            except AttributeError:  # may be a PyShell
+                pass
         self.text.focus_set()
         return "break"
 

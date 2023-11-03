@@ -891,7 +891,7 @@ class PyShell(OutputWindow):
             fixwordbreaks(root)
             root.withdraw()
             flist = PyShellFileList(root)
-
+        flist.new()
         self.shell_sidebar = None  # initialized below
 
         OutputWindow.__init__(self, flist, None, None)

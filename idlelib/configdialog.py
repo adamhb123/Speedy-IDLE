@@ -120,6 +120,7 @@ class ConfigDialog(Toplevel):
         self.keyspage = KeysPage(note, self.extpage)
         self.winpage = WinPage(note)
         self.shedpage = ShedPage(note)
+        self.speedyidlepage = SpeedyIDLEPage(note)
 
         note.add(self.fontpage, text=' Fonts ')
         note.add(self.highpage, text='Highlights')
@@ -127,6 +128,7 @@ class ConfigDialog(Toplevel):
         note.add(self.winpage, text=' Windows ')
         note.add(self.shedpage, text=' Shell/Ed ')
         note.add(self.extpage, text='Extensions')
+        note.add(self.speedyidlepage, text='SpeedyIDLE')
         note.enable_traversal()
         note.pack(side=TOP, expand=TRUE, fill=BOTH)
         self.create_action_buttons().pack(side=BOTTOM)
@@ -277,6 +279,124 @@ font_sample_text = (
     '\u3042\u3044\u3046\u3048\u304a\u30a2\u30a4\u30a6\u30a8\u30aa\n'
     )
 
+class SpeedyIDLEPage(Frame):
+
+    def __init__(self, master):
+        super().__init__(master)
+
+        self.init_validators()
+        self.create_page_shed()
+        self.load_shelled_cfg()
+
+    def init_validators(self):
+        digits_or_empty_re = re.compile(r'[0-9]*')
+        def is_digits_or_empty(s):
+            "Return 's is blank or contains only digits'"
+            return digits_or_empty_re.fullmatch(s) is not None
+        self.digits_only = (self.register(is_digits_or_empty), '%P',)
+
+    def create_page_shed(self):
+        """Return frame of widgets for Shell/Ed tab.
+
+        Enable users to provisionally change shell and editor options.
+        Function load_shed_cfg initializes tk variables using idleConf.
+        Entry box auto_squeeze_min_lines_int sets
+        auto_squeeze_min_lines_int.  Setting var_name invokes the
+        default callback that adds option to changes.
+
+        Widgets for ShedPage(Frame):  (*) widgets bound to self
+            frame_shell: LabelFrame
+                frame_auto_squeeze_min_lines: Frame
+                    auto_squeeze_min_lines_title: Label
+                    (*)auto_squeeze_min_lines_int: Entry -
+                       auto_squeeze_min_lines
+            frame_editor: LabelFrame
+                frame_save: Frame
+                    run_save_title: Label
+                    (*)save_ask_on: Radiobutton - autosave
+                    (*)save_auto_on: Radiobutton - autosave
+                frame_format: Frame
+                    format_width_title: Label
+                    (*)format_width_int: Entry - format_width
+                frame_line_numbers_default: Frame
+                    line_numbers_default_title: Label
+                    (*)line_numbers_default_bool: Checkbutton - line_numbers_default
+                frame_context: Frame
+                    context_title: Label
+                    (*)context_int: Entry - context_lines
+        """
+        # Integer values need StringVar because int('') raises.
+        self.auto_squeeze_min_lines = tracers.add(
+                StringVar(self), ('main', 'PyShell', 'auto-squeeze-min-lines'))
+
+        self.autosave = tracers.add(
+                IntVar(self), ('main', 'General', 'autosave'))
+        self.line_numbers_default = tracers.add(
+                BooleanVar(self),
+                ('main', 'EditorWindow', 'line-numbers-default'))
+        self.context_lines = tracers.add(
+                StringVar(self), ('extensions', 'CodeContext', 'maxlines'))
+        self.quicksave_path = tracers.add(StringVar(self), ('main', 'EditorWindow', 'quicksave-path'))
+        # Access above with if idleConf.GetOption('main', 'EditorWindow',
+                         #         'quicksave-path', type='bool'):
+
+        # Create widgets:
+        frame_shell = LabelFrame(self, borderwidth=2, relief=GROOVE,
+                                 text=' Shell Preferences')
+        frame_editor = LabelFrame(self, borderwidth=2, relief=GROOVE,
+                                  text=' Editor Preferences')
+        # Frame_shell.
+        frame_auto_squeeze_min_lines = Frame(frame_shell, borderwidth=0)
+        auto_squeeze_min_lines_title = Label(frame_auto_squeeze_min_lines,
+                                             text='Auto-Squeeze Min. Lines:')
+        self.auto_squeeze_min_lines_int = Entry(
+                frame_auto_squeeze_min_lines, width=4,
+                textvariable=self.auto_squeeze_min_lines,
+                validatecommand=self.digits_only, validate='key',
+        )
+       
+        # Frame_editor.
+        frame_save = Frame(frame_editor, borderwidth=0)
+        run_save_title = Label(frame_save, text='At Start of Run (F5)  ')
+        quicksave_path_label = Label(frame_save, text='Quicksave Path   ')
+        self.quicksave_path_ent = Entry(
+            frame_save, textvariable=self.quicksave_path, width=3, validate='key',
+        )
+        self.save_ask_on = Radiobutton(
+                frame_save, variable=self.autosave, value=0,
+                text="Prompt to Save")
+        self.save_auto_on = Radiobutton(
+                frame_save, variable=self.autosave, value=1,
+                text='No Prompt')
+
+        # Pack widgets:
+        frame_shell.pack(side=TOP, padx=5, pady=5, fill=BOTH)
+        Label(self).pack()  # Spacer -- better solution?
+        frame_editor.pack(side=TOP, padx=5, pady=5, fill=BOTH)
+        # frame_save.
+        frame_save.pack(side=TOP, padx=5, pady=0, fill=X)
+        quicksave_path_label.pack(side=LEFT, anchor=W, padx=5, pady=5)
+        self.quicksave_path_ent.pack(side=RIGHT, anchor=W, padx=5, pady=5, expand=True, ipadx=72)
+
+    def load_shelled_cfg(self):
+        # Set variables for shell windows.
+        self.auto_squeeze_min_lines.set(idleConf.GetOption(
+                'main', 'PyShell', 'auto-squeeze-min-lines', type='int'))
+        now = datetime.now().strftime("%d-%m-%Y %H.%M.%S")
+        pway = f"{os.getcwd()}\\temp"
+        if not os.path.isdir(pway):
+            os.makedirs(pway)
+        self.set_filename(f"{pway}\\{now}.py")
+        self.quicksave_path.set(idleConf.GetOption('main', 'EditorWindow', 'quicksave-path', type='str', default=""))
+        # Set variables for editor windows.
+        self.autosave.set(idleConf.GetOption(
+                'main', 'General', 'autosave', default=0, type='bool'))
+        self.line_numbers_default.set(idleConf.GetOption(
+                'main', 'EditorWindow', 'line-numbers-default', type='bool'))
+        self.line_numbers_default.set(idleConf.GetOption(
+                'main', 'EditorWindow', 'line-numbers-default', type='bool'))
+        self.context_lines.set(idleConf.GetOption(
+                'extensions', 'CodeContext', 'maxlines', type='int'))
 
 class FontPage(Frame):
 
